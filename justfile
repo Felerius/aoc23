@@ -32,6 +32,9 @@ download day:
 @run day: (download day)
     "$(just _build "{{ day }}" debug)" < ".inputs/{{ day }}.txt"
 
+@runr day: (download day)
+    "$(just _build "{{ day }}" release)" < ".inputs/{{ day }}.txt"
+
 bench day: (download day)
     #!/usr/bin/env bash
     set -euo pipefail
