@@ -1,47 +1,36 @@
-use std::{
-    io::{self, BufRead},
-    mem,
-};
+use std::io::{self, BufRead};
 
 use anyhow::{Context, Ok, Result};
 
 fn count_valid_arrangements(record: &[u8], blocks: &[usize]) -> usize {
     let num_records = record.len();
     let num_blocks = blocks.len();
-    let max_blocks = blocks.iter().copied().max().unwrap_or(0);
-    let mut dp = vec![vec![0; max_blocks + 1]; num_blocks + 1];
-    let mut dp_prev = dp.clone();
-    dp_prev[0][0] = 1;
+    let mut max_block = 0;
+    let mut dp = vec![vec![0; num_blocks + 1]; num_records + 1];
+    dp[0][0] = 1;
 
     for i in 0..num_records {
         let can_place_empty = record[i] != b'#';
         let can_place_spring = record[i] != b'.';
-        for row in &mut dp {
-            row.fill(0);
-        }
+        max_block = if can_place_spring { max_block + 1 } else { 0 };
+        dp[i + 1].fill(0);
 
-        for j in 0..=num_blocks {
-            for k in 0..=blocks.get(j).copied().unwrap_or(0) {
-                if can_place_empty {
-                    if j != num_blocks && k == blocks[j] {
-                        dp[j + 1][0] += dp_prev[j][k];
-                    } else if k == 0 {
-                        dp[j][0] += dp_prev[j][k];
-                    }
-                }
-
-                if can_place_spring {
-                    if j != num_blocks && k < blocks[j] {
-                        dp[j][k + 1] += dp_prev[j][k];
-                    }
-                }
+        dp[i + 1][0] = if can_place_empty { dp[i][0] } else { 0 };
+        for j in 0..num_blocks {
+            if can_place_empty {
+                dp[i + 1][j + 1] += dp[i][j + 1];
+            }
+            if max_block >= blocks[j] && (i + 1 == blocks[j] || record[i - blocks[j]] != b'#') {
+                dp[i + 1][j + 1] += if i + 1 == blocks[j] {
+                    dp[0][j]
+                } else {
+                    dp[i - blocks[j]][j]
+                };
             }
         }
-
-        mem::swap(&mut dp, &mut dp_prev);
     }
 
-    dp_prev[num_blocks][0] + dp_prev[num_blocks - 1][blocks[num_blocks - 1]]
+    dp[num_records][num_blocks]
 }
 
 fn main() -> Result<()> {
