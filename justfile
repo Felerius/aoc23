@@ -43,4 +43,4 @@ bench day: (download day)
     set -euo pipefail
 
     bin="$(just _build "{{ day }}" release)"
-    hyperfine --warmup 3 "'$bin' < '.inputs/{{ day }}.txt'"
+    hyperfine --warmup 100 --shell none --input '.inputs//{{ day }}.txt' "$bin"
