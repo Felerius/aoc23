@@ -1,11 +1,11 @@
 use std::{
-    collections::HashMap,
     io::{self, BufRead},
     iter,
 };
 
 use anyhow::{anyhow, Context, Result};
 use itertools::Itertools;
+use rustc_hash::FxHashMap;
 
 fn parse_node(s: &str) -> usize {
     let s = s.as_bytes();
@@ -78,7 +78,7 @@ fn main() -> Result<()> {
         .filter(|&v| adj[v].is_some())
         .map(|v| {
             let mut path = vec![v];
-            let mut seen = HashMap::new();
+            let mut seen = FxHashMap::default();
             seen.insert((v, instructions.len() - 1), 0);
             for (instr_idx, direction) in iter::repeat(instructions.bytes().enumerate()).flatten() {
                 let node = *path.last().unwrap();

@@ -7,3 +7,7 @@ edition = "2021"
 aho-corasick = "1.1.2"
 anyhow = "1.0.75"
 itertools = "0.12.0"
+rustc-hash = "1.1.0"
+
+[profile.release]
+lto = true

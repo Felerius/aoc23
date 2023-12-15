@@ -1,13 +1,11 @@
-use std::{
-    collections::{HashMap, HashSet},
-    io::{self, BufRead},
-};
+use std::io::{self, BufRead};
 
 use anyhow::{Context, Result};
+use rustc_hash::{FxHashMap, FxHashSet};
 
 fn main() -> Result<()> {
     let stdin = io::stdin().lock();
-    let mut counts: HashMap<usize, usize> = HashMap::new();
+    let mut counts = FxHashMap::<usize, usize>::default();
     let mut part1 = 0;
     let mut part2 = 0;
     for (i, line) in stdin.lines().enumerate() {
@@ -19,7 +17,7 @@ fn main() -> Result<()> {
             .1
             .split_once(" | ")
             .context("invalid input")?;
-        let winning: HashSet<_> = winning.split_ascii_whitespace().collect();
+        let winning: FxHashSet<_> = winning.split_ascii_whitespace().collect();
         let num_correct = chosen
             .split_ascii_whitespace()
             .filter(|num| winning.contains(num))

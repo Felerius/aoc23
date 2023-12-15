@@ -1,10 +1,8 @@
-use std::{
-    collections::HashMap,
-    io::{self, BufRead},
-};
+use std::io::{self, BufRead};
 
 use anyhow::Result;
 use itertools::Itertools;
+use rustc_hash::FxHashMap;
 
 fn tilt(
     len_tilt: usize,
@@ -48,7 +46,7 @@ fn part1(mut grid: Vec<u8>, height: usize, width: usize) -> usize {
 }
 
 fn part2(mut grid: Vec<u8>, height: usize, width: usize) -> usize {
-    let mut seen = HashMap::new();
+    let mut seen = FxHashMap::default();
     seen.insert(grid.clone(), 0);
     loop {
         tilt_cycle(&mut grid, height, width);
