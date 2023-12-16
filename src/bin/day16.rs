@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{bail, Result};
+use arrayvec::ArrayVec;
 use itertools::Itertools;
 
 #[derive(Debug, Clone, Copy)]
@@ -60,8 +61,8 @@ impl GraphIndexing {
     }
 }
 
-fn build_graph(indexing: GraphIndexing, grid: &[Vec<u8>]) -> Result<Vec<Vec<usize>>> {
-    let mut adj = vec![vec![]; indexing.total()];
+fn build_graph(indexing: GraphIndexing, grid: &[Vec<u8>]) -> Result<Vec<ArrayVec<usize, 2>>> {
+    let mut adj = vec![ArrayVec::new(); indexing.total()];
     for (y, row) in grid.iter().enumerate() {
         for (x, &c) in row.iter().enumerate() {
             let pairs: &[_] = match c {
@@ -111,15 +112,20 @@ fn build_graph(indexing: GraphIndexing, grid: &[Vec<u8>]) -> Result<Vec<Vec<usiz
     Ok(adj)
 }
 
-fn run_bfs(adj: &[Vec<usize>], indexing: GraphIndexing, v0: usize) -> usize {
-    let mut seen = vec![false; indexing.total()];
-    let mut queue = VecDeque::new();
-    seen[v0] = true;
+fn run_bfs(
+    adj: &[ArrayVec<usize, 2>],
+    indexing: GraphIndexing,
+    v0: usize,
+    queue: &mut VecDeque<usize>,
+    seen: &mut [usize],
+    run_idx: usize,
+) -> usize {
+    seen[v0] = run_idx;
     queue.push_back(v0);
     while let Some(v) = queue.pop_front() {
         for &v2 in &adj[v] {
-            if !seen[v2] {
-                seen[v2] = true;
+            if seen[v2] != run_idx {
+                seen[v2] = run_idx;
                 queue.push_back(v2);
             }
         }
@@ -130,7 +136,7 @@ fn run_bfs(adj: &[Vec<usize>], indexing: GraphIndexing, v0: usize) -> usize {
         .filter(|&(x, y)| {
             [Edge::InWest, Edge::InEast, Edge::InNorth, Edge::InSouth]
                 .iter()
-                .any(|&edge| seen[indexing.index(x, y, edge)])
+                .any(|&edge| seen[indexing.index(x, y, edge)] == run_idx)
         })
         .count()
 }
@@ -148,7 +154,18 @@ fn main() -> Result<()> {
     };
     let adj = build_graph(indexing, &grid)?;
 
-    let part1 = run_bfs(&adj, indexing, indexing.index(0, 0, Edge::InWest));
+    let mut queue = VecDeque::with_capacity(indexing.total());
+    let mut seen = vec![0; indexing.total()];
+    let mut run_idx = 1;
+    let part1 = run_bfs(
+        &adj,
+        indexing,
+        indexing.index(0, 0, Edge::InWest),
+        &mut queue,
+        &mut seen,
+        run_idx,
+    );
+
     let part2 = (0..indexing.height)
         .flat_map(|y| [(0, y, Edge::InWest), (indexing.width - 1, y, Edge::InEast)])
         .chain((0..indexing.width).flat_map(|x| {
@@ -157,7 +174,17 @@ fn main() -> Result<()> {
                 (x, indexing.height - 1, Edge::InSouth),
             ]
         }))
-        .map(|(x, y, edge)| run_bfs(&adj, indexing, indexing.index(x, y, edge)))
+        .map(|(x, y, edge)| {
+            run_idx += 1;
+            run_bfs(
+                &adj,
+                indexing,
+                indexing.index(x, y, edge),
+                &mut queue,
+                &mut seen,
+                run_idx,
+            )
+        })
         .max()
         .unwrap_or_default();
 
