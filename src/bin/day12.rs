@@ -1,36 +1,41 @@
-use std::io::{self, BufRead};
+use std::{
+    io::{self, BufRead},
+    mem,
+};
 
 use anyhow::{Context, Ok, Result};
 
-fn count_valid_arrangements(record: &[u8], blocks: &[usize]) -> usize {
-    let num_records = record.len();
-    let num_blocks = blocks.len();
-    let mut max_block = 0;
-    let mut dp = vec![vec![0; num_blocks + 1]; num_records + 1];
-    dp[0][0] = 1;
+fn count_valid_arrangements(records: &[u8], blocks: &[usize]) -> u64 {
+    // We modify the input in `main` to avoid handling the case where the first
+    // block starts at the very beginning
+    debug_assert_eq!(records[0], b'.');
 
-    for i in 0..num_records {
-        let can_place_empty = record[i] != b'#';
-        let can_place_spring = record[i] != b'.';
-        max_block = if can_place_spring { max_block + 1 } else { 0 };
-        dp[i + 1].fill(0);
+    let mut dp = vec![0; records.len() + 1];
+    let mut dp_prev = dp.clone();
+    let max_empty_prefix = records.iter().take_while(|&&record| record != b'#').count();
+    dp_prev[..=max_empty_prefix].fill(1);
 
-        dp[i + 1][0] = if can_place_empty { dp[i][0] } else { 0 };
-        for j in 0..num_blocks {
+    for block in blocks {
+        dp.fill(0);
+        let mut max_block = 0;
+        for (j, &record) in records.iter().enumerate() {
+            let can_place_empty = record != b'#';
+            let can_place_spring = record != b'.';
+            max_block = if can_place_spring { max_block + 1 } else { 0 };
+
             if can_place_empty {
-                dp[i + 1][j + 1] += dp[i][j + 1];
+                dp[j + 1] += dp[j];
             }
-            if max_block >= blocks[j] && (i + 1 == blocks[j] || record[i - blocks[j]] != b'#') {
-                dp[i + 1][j + 1] += if i + 1 == blocks[j] {
-                    dp[0][j]
-                } else {
-                    dp[i - blocks[j]][j]
-                };
+
+            if max_block >= *block && j + 1 > *block && records[j - *block] != b'#' {
+                dp[j + 1] += dp_prev[j - *block];
             }
         }
+
+        mem::swap(&mut dp, &mut dp_prev);
     }
 
-    dp[num_records][num_blocks]
+    dp_prev[records.len()]
 }
 
 fn main() -> Result<()> {
@@ -52,13 +57,16 @@ fn main() -> Result<()> {
     let (part1, part2) = lines
         .into_iter()
         .map(|(mut record, mut blocks)| {
+            // To avoid handling the first block starting at the very beginning
+            record.insert(0, b'.');
+
             let part1 = count_valid_arrangements(&record, &blocks);
 
             let n = record.len();
             let m = blocks.len();
             for _ in 0..4 {
                 record.push(b'?');
-                record.extend_from_within(0..n);
+                record.extend_from_within(1..n);
                 blocks.extend_from_within(0..m);
             }
             let part2 = count_valid_arrangements(&record, &blocks);
