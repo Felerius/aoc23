@@ -7,97 +7,49 @@ use std::{
 use anyhow::Result;
 use itertools::Itertools;
 
-fn part1(weights: &[Vec<u8>]) -> u32 {
+// Directions: east, south, west, north
+const TURNS: [[(usize, isize, isize); 2]; 4] = [
+    [(1, 1, 0), (3, -1, 0)],
+    [(0, 0, 1), (2, 0, -1)],
+    [(1, 1, 0), (3, -1, 0)],
+    [(0, 0, 1), (2, 0, -1)],
+];
+
+fn dijkstra<const MIN: usize, const MAX: usize>(weights: &[Vec<u8>]) -> u32 {
     let height = weights.len();
     let width = weights[0].len();
 
-    // Directions: east, south, west, north
-    let mut dist = vec![vec![[[u32::MAX; 3]; 4]; width]; height];
+    let mut dist = vec![vec![[u32::MAX; 4]; width]; height];
     let mut queue = BinaryHeap::new();
-    for dir in [0, 1] {
-        dist[0][0][dir][0] = 0;
-        queue.push((Reverse(0), 0, 0, dir, 0));
+    for dir in [2, 3] {
+        dist[0][0][dir] = 0;
+        queue.push((Reverse(0), 0, 0, dir));
     }
 
-    while let Some((d, y, x, in_dir, in_streak)) = queue.pop() {
+    while let Some((d, y, x, in_dir)) = queue.pop() {
         let Reverse(d) = d;
         if y == height - 1 && x == width - 1 {
             return d;
         }
-        if d > dist[y][x][in_dir][in_streak] {
+        if d > dist[y][x][in_dir] {
             continue;
         }
 
-        for (out_dir, (dy, dx)) in [(0, 1), (1, 0), (0, -1), (-1, 0)].into_iter().enumerate() {
-            let Some(y2) = y.checked_add_signed(dy) else {
-                continue;
-            };
-            let Some(x2) = x.checked_add_signed(dx) else {
-                continue;
-            };
-            if y2 == height || x2 == width {
-                continue;
-            }
-
-            let out_streak = if in_dir == out_dir { in_streak + 1 } else { 0 };
-            if (in_dir + 2) % 4 == out_dir || out_streak > 2 {
-                continue;
-            }
-
-            let d2 = d + u32::from(weights[y2][x2]);
-            if d2 < dist[y2][x2][out_dir][out_streak] {
-                dist[y2][x2][out_dir][out_streak] = d2;
-                queue.push((Reverse(d2), y2, x2, out_dir, out_streak));
-            }
-        }
-    }
-
-    unreachable!("target should always be reachable");
-}
-
-fn part2(weights: &[Vec<u8>]) -> u32 {
-    let height = weights.len();
-    let width = weights[0].len();
-
-    // Directions: east, south, west, north
-    let mut dist = vec![vec![[[u32::MAX; 10]; 4]; width]; height];
-    let mut queue = BinaryHeap::new();
-    for dir in [2, 3] {
-        dist[0][0][dir][3] = 0;
-        queue.push((Reverse(0), 0, 0, dir, 3));
-    }
-
-    while let Some((d, y, x, in_dir, in_streak)) = queue.pop() {
-        let Reverse(d) = d;
-        if y == height - 1 && x == width - 1 && in_streak >= 3 {
-            return d;
-        }
-        if d > dist[y][x][in_dir][in_streak] {
-            continue;
-        }
-
-        for (out_dir, (dy, dx)) in [(0, 1), (1, 0), (0, -1), (-1, 0)].into_iter().enumerate() {
-            let Some(y2) = y.checked_add_signed(dy) else {
-                continue;
-            };
-            let Some(x2) = x.checked_add_signed(dx) else {
-                continue;
-            };
-            if y2 == height || x2 == width {
-                continue;
-            }
-
-            let out_streak = if in_dir == out_dir { in_streak + 1 } else { 0 };
-            if (in_dir + 2) % 4 == out_dir || out_streak > 9 || (in_dir != out_dir && in_streak < 3)
-            {
-                continue;
-            }
-
-            let d2 = d + u32::from(weights[y2][x2]);
-            if d2 < dist[y2][x2][out_dir][out_streak] {
-                dist[y2][x2][out_dir][out_streak] = d2;
-                queue.push((Reverse(d2), y2, x2, out_dir, out_streak));
-            }
+        for (out_dir, dy, dx) in TURNS[in_dir] {
+            (1..=MAX)
+                .scan((y, x, d), |(y2, x2, d2), _| {
+                    *y2 = y2.checked_add_signed(dy).filter(|&y2| y2 < height)?;
+                    *x2 = x2.checked_add_signed(dx).filter(|&x2| x2 < width)?;
+                    *d2 += u32::from(weights[*y2][*x2]);
+                    Some((*y2, *x2, *d2))
+                })
+                .skip(MIN - 1)
+                .for_each(|(y2, x2, d2)| {
+                    if d2 < dist[y2][x2][out_dir] {
+                        dist[y2][x2][out_dir] = d2;
+                        queue.push((Reverse(d2), y2, x2, out_dir));
+                    }
+                });
         }
     }
 
@@ -117,8 +69,8 @@ fn main() -> Result<()> {
         })
         .try_collect()?;
 
-    let part1 = part1(&weights);
-    let part2 = part2(&weights);
+    let part1 = dijkstra::<1, 3>(&weights);
+    let part2 = dijkstra::<4, 10>(&weights);
 
     println!("Part 1: {part1}");
     println!("Part 2: {part2}");
