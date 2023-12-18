@@ -6,14 +6,6 @@ use std::{
 use anyhow::Result;
 use itertools::Itertools;
 
-// Directions: east, south, west, north
-const TURNS: [[(usize, isize, isize); 2]; 4] = [
-    [(1, 1, 0), (3, -1, 0)],
-    [(0, 0, 1), (2, 0, -1)],
-    [(1, 1, 0), (3, -1, 0)],
-    [(0, 0, 1), (2, 0, -1)],
-];
-
 struct FixedPriorityQueue<T, const N: usize> {
     queues: [Vec<T>; N],
     offset: usize,
@@ -62,9 +54,9 @@ fn dijkstra<const MIN: usize, const MAX: usize, const QUEUE_SIZE: usize>(
     let height = weights.len();
     let width = weights[0].len();
 
-    let mut dist = vec![vec![[u32::MAX; 4]; width]; height];
+    let mut dist = vec![vec![[u32::MAX; 2]; width]; height];
     let mut queue = FixedPriorityQueue::<_, QUEUE_SIZE>::new();
-    for dir in [2, 3] {
+    for dir in 0..2 {
         dist[0][0][dir] = 0;
         queue.push(0, (0, 0, dir));
     }
@@ -77,21 +69,33 @@ fn dijkstra<const MIN: usize, const MAX: usize, const QUEUE_SIZE: usize>(
             continue;
         }
 
-        for (out_dir, dy, dx) in TURNS[in_dir] {
-            (1..=MAX)
-                .scan((y, x, 0), |(y2, x2, w), _| {
-                    *y2 = y2.checked_add_signed(dy).filter(|&y2| y2 < height)?;
-                    *x2 = x2.checked_add_signed(dx).filter(|&x2| x2 < width)?;
-                    *w += u32::from(weights[*y2][*x2]);
-                    Some((*y2, *x2, *w))
-                })
-                .skip(MIN - 1)
-                .for_each(|(y2, x2, w)| {
-                    if d + w < dist[y2][x2][out_dir] {
-                        dist[y2][x2][out_dir] = d + w;
-                        queue.push(w, (y2, x2, out_dir));
-                    }
-                });
+        let (start_coord, upper_bound) = if in_dir == 0 { (y, height) } else { (x, width) };
+        let to_point = |coord| if in_dir == 0 { (coord, x) } else { (y, coord) };
+
+        let min_coord = start_coord.checked_sub(MAX).unwrap_or(0);
+        let max_coord = (start_coord + MAX).min(upper_bound - 1);
+        let decreasing = (min_coord..start_coord)
+            .rev()
+            .scan(0, |wsum, coord| {
+                let (y, x) = to_point(coord);
+                *wsum += u32::from(weights[y][x]);
+                Some((y, x, *wsum))
+            })
+            .skip(MIN - 1);
+        let increasing = ((start_coord + 1)..=max_coord)
+            .scan(0, |wsum, coord| {
+                let (y, x) = to_point(coord);
+                *wsum += u32::from(weights[y][x]);
+                Some((y, x, *wsum))
+            })
+            .skip(MIN - 1);
+
+        let out_dir = 1 - in_dir;
+        for (y, x, wsum) in decreasing.chain(increasing) {
+            if d + wsum < dist[y][x][out_dir] {
+                dist[y][x][out_dir] = d + wsum;
+                queue.push(wsum, (y, x, out_dir));
+            }
         }
     }
 
