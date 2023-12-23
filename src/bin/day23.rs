@@ -3,19 +3,21 @@ use std::{io, iter, str::FromStr};
 use anyhow::{Context, Result};
 use itertools::{iproduct, Itertools};
 
+type Bitset = u128;
+
 #[derive(Debug, Clone)]
 struct Graph {
     num_nodes: usize,
-    adj: [u128; Self::MAX_SIZE],
+    adj: [Bitset; Self::MAX_SIZE],
     node_weights: [u16; Self::MAX_SIZE],
     start: usize,
     target: usize,
 }
 
 impl Graph {
-    const MAX_SIZE: usize = 128;
+    const MAX_SIZE: usize = Bitset::BITS as usize;
 
-    fn neighbors(&self, v: usize, mask: u128) -> impl Iterator<Item = usize> {
+    fn neighbors(&self, v: usize, mask: Bitset) -> impl Iterator<Item = usize> {
         let mut bs = self.adj[v] & mask;
         iter::from_fn(move || {
             bs.checked_sub(1).map(|bs_minus_one| {
@@ -36,7 +38,7 @@ impl FromStr for Graph {
         let width = grid[0].len();
 
         let mut num_nodes = 0;
-        let mut adj = [0; Self::MAX_SIZE];
+        let mut adj = [Bitset::default(); Self::MAX_SIZE];
         let mut node_weights = [0; Self::MAX_SIZE];
         let mut endpoints = vec![vec![None; width]; height];
         for (y, x) in iproduct!(0..height, 0..width) {
@@ -143,7 +145,7 @@ fn dag_dfs(v: usize, graph: &Graph, longest_path: &mut [u16]) -> u16 {
     longest_path[v]
 }
 
-fn longest_path_brute_force(v: usize, len: u16, graph: &Graph, seen: u128) -> u16 {
+fn longest_path_brute_force(v: usize, len: u16, graph: &Graph, seen: Bitset) -> u16 {
     if v == graph.target {
         return len + graph.node_weights[v];
     }
